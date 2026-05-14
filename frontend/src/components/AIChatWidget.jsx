@@ -42,7 +42,7 @@ const AIChatWidget = () => {
       <button
         id="ai-chat-fab"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-2xl flex items-center justify-center z-40 transition-all duration-300"
+        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 w-14 h-14 rounded-2xl flex items-center justify-center z-[60] transition-all duration-300"
         style={{
           background: 'linear-gradient(135deg, #16a34a, #059669)',
           boxShadow: '0 8px 24px rgba(22,163,74,0.40)',
@@ -57,7 +57,7 @@ const AIChatWidget = () => {
       {/* Chat Window */}
       <div
         id="ai-chat-window"
-        className="fixed bottom-6 right-6 w-[340px] sm:w-[380px] h-[500px] flex flex-col z-50 glass-panel"
+        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 w-[340px] sm:w-[380px] h-[500px] flex flex-col z-[60] glass-panel"
         style={{
           borderRadius: 22,
           boxShadow: '0 24px 80px rgba(13,74,47,0.22)',
