@@ -44,7 +44,7 @@ def chat_with_assistant(request: ChatRequest):
                 {"role": "user", "content": request.message}
             ],
             extra_headers={
-                "HTTP-Referer": "http://localhost:8000",
+                "HTTP-Referer": "https://omnibin.vercel.app",
                 "X-Title": "OmniBin Backend"
             }
         )

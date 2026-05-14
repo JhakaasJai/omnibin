@@ -28,8 +28,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173", # Keep local for testing
-        "https://omnibin.vercel.app" # <--- ADD YOUR VERCEL URL HERE
+        "https://omnibin.vercel.app"
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
