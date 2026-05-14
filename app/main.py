@@ -23,13 +23,18 @@ app = FastAPI(
 )
 
 # Enable CORS for frontend web integration
+# Enable CORS for frontend web integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173", # Keep local for testing
+        "https://omnibin.vercel.app" # <--- ADD YOUR VERCEL URL HERE
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 from app.routers import bins, chat, operators, complaints, detection
 
