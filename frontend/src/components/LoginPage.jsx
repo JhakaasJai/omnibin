@@ -96,12 +96,11 @@ const LoginPage = ({ setRole, setOperatorId }) => {
       ))}
 
       {/* ── Main glass container ─────────────────────────────────── */}
-      <div className="relative z-10 w-full max-w-5xl glass-panel rounded-3xl overflow-hidden animate-scale-in shadow-2xl"
-           style={{ minHeight: 580 }}>
+      <div className="relative z-10 w-full max-w-5xl glass-panel rounded-3xl overflow-hidden animate-scale-in shadow-2xl lg:min-h-[580px]">
         <div className="flex flex-col lg:flex-row h-full">
 
           {/* ── LEFT: Hero panel ──────────────────────────────────── */}
-          <div className="lg:w-[55%] p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden"
+          <div className="lg:w-[55%] p-6 lg:p-10 flex flex-col justify-between relative overflow-hidden"
                style={{ background: 'rgba(255,255,255,0.18)' }}>
 
             {/* Inner glow top */}
@@ -172,7 +171,7 @@ const LoginPage = ({ setRole, setOperatorId }) => {
           </div>
 
           {/* ── RIGHT: Login form ──────────────────────────────────── */}
-          <div className="lg:w-[45%] p-8 lg:p-10 flex flex-col justify-center"
+          <div className="lg:w-[45%] p-6 lg:p-10 flex flex-col justify-center"
                style={{ background: 'rgba(255,255,255,0.42)', borderLeft: '1px solid rgba(255,255,255,0.55)' }}>
 
             {/* Avatar circle */}

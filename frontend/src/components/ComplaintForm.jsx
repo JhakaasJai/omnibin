@@ -85,7 +85,7 @@ const ComplaintForm = () => {
       <div className="nature-bg" />
 
       <div className="relative z-10 w-full max-w-xl glass-panel rounded-3xl overflow-hidden shadow-2xl animate-scale-in">
-        <div className="p-8 lg:p-10" style={{ background: 'rgba(255,255,255,0.45)' }}>
+        <div className="p-5 md:p-8 lg:p-10" style={{ background: 'rgba(255,255,255,0.45)' }}>
           
           <button 
             onClick={() => navigate('/')}
@@ -96,7 +96,7 @@ const ComplaintForm = () => {
           </button>
 
           <div className="mb-6">
-            <h1 className="text-3xl font-black mb-2" style={{ color: '#0d4a2f' }}>
+            <h1 className="text-2xl md:text-3xl font-black mb-2" style={{ color: '#0d4a2f' }}>
               Register a <span style={{ color: '#16a34a' }}>Complaint</span>
             </h1>
             <p className="text-sm" style={{ color: 'rgba(13,74,47,0.65)' }}>
