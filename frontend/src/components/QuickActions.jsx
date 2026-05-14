@@ -52,7 +52,7 @@ const QuickActions = ({ onSeed, seeding, onRandomize, randomizing, onConfig, onO
       color: '#0369a1',
       bg: 'rgba(3,105,161,0.10)',
       border: 'rgba(3,105,161,0.24)',
-      onClick: () => window.open('http://127.0.0.1:8000/docs', '_blank'),
+      onClick: () => window.open(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/docs`, '_blank'),
     },
     {
       id: 'qa-emergency',
