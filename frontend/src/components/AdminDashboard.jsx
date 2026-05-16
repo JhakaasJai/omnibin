@@ -175,7 +175,7 @@ function AdminDashboard() {
     try {
       await triggerEmergency();
       // Operators fetched by the 5-second polling interval will reflect this change
-      alert('Emergency Protocol Activated: All field operators have been notified and brought online for immediate dispatch!');
+      alert('Emergency Protocol Activated: Notifications sent to all online operators to dispatch immediately!');
     } catch (e) {
       alert('Failed to trigger emergency protocol.');
     }

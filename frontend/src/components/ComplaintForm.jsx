@@ -73,7 +73,8 @@ const ComplaintForm = () => {
       });
       setSuccess(true);
     } catch (err) {
-      setError('Failed to submit the complaint. Please try again later.');
+      const msg = err.response?.data?.detail || 'Failed to submit the complaint. Please try again later.';
+      setError(msg);
     } finally {
       setLoading(false);
     }

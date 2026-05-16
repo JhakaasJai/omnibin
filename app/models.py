@@ -105,6 +105,7 @@ class OperatorBase(BaseModel):
     latitude: Optional[float] = Field(None, description="Current live latitude")
     longitude: Optional[float] = Field(None, description="Current live longitude")
     heading: Optional[float] = Field(None, description="Current heading/direction in degrees")
+    emergency_dispatch: Optional[bool] = Field(False, description="True if operator has pending emergency dispatch notification")
 
 
 class OperatorCreate(OperatorBase):

@@ -109,7 +109,20 @@ def mock_live_operators():
 
 @router.post("/api/operators/emergency")
 def trigger_emergency_dispatch():
-    """Emergency dispatch to all live and offline operators."""
-    # Set all operators to live to simulate them coming online for dispatch
-    operators_collection.update_many({}, {"$set": {"state": "live"}})
-    return {"message": "Emergency dispatch signal sent to all operators."}
+    """Emergency dispatch notification to all live operators."""
+    # Set emergency_dispatch flag to true for all live operators
+    operators_collection.update_many({"state": "live"}, {"$set": {"emergency_dispatch": True}})
+    return {"message": "Emergency dispatch signal sent to all online operators."}
+
+@router.put("/api/operators/{operator_id}/acknowledge_emergency", response_model=OperatorResponse)
+def acknowledge_emergency(operator_id: str):
+    """Acknowledge emergency dispatch."""
+    from pymongo import ReturnDocument
+    res = operators_collection.find_one_and_update(
+        {"_id": ObjectId(operator_id)},
+        {"$set": {"emergency_dispatch": False}},
+        return_document=ReturnDocument.AFTER
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Operator not found")
+    return serialize_operator(res)

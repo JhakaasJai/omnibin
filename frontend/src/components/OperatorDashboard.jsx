@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LogOut, Radio, MapPin, Truck, RefreshCw, AlertCircle, Camera, CheckCircle } from 'lucide-react';
-import { fetchBins, fetchOptimalRoute, fetchConfig, setOperatorLive, setOperatorOffline, updateOperatorLocation, updateComplaintStatus } from '../services/api';
+import { fetchBins, fetchOptimalRoute, fetchConfig, setOperatorLive, setOperatorOffline, updateOperatorLocation, updateComplaintStatus, fetchAllOperators, acknowledgeEmergency } from '../services/api';
 import MapView from './MapView';
 
 const haversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -24,6 +24,7 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
   const [error, setError] = useState('');
   const [selectedBin, setSelectedBin] = useState(null);
   const [config, setConfig] = useState(null);
+  const [hasEmergency, setHasEmergency] = useState(false);
   const watchIdRef = React.useRef(null);
   const isLiveRef = React.useRef(false);
 
@@ -35,7 +36,7 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
     try {
       setBins(await fetchBins());
       setConfig(await fetchConfig());
-      if (isLive) {
+      if (isLiveRef.current) {
         const routeData = await fetchOptimalRoute('dynamic');
         setOptimalRoute(routeData);
       }
@@ -43,6 +44,25 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
       console.error(err);
     }
   };
+
+  // Separate dedicated polling for emergency dispatch flag - always runs
+  useEffect(() => {
+    if (!operatorId) return;
+    const checkEmergency = async () => {
+      try {
+        const ops = await fetchAllOperators();
+        const me = ops.find(o => o.operator_id === operatorId);
+        if (me && me.emergency_dispatch) {
+          setHasEmergency(true);
+        }
+      } catch (err) {
+        console.error('Emergency check failed:', err);
+      }
+    };
+    checkEmergency(); // run immediately on mount
+    const iv = setInterval(checkEmergency, 5000); // poll every 5s
+    return () => clearInterval(iv);
+  }, [operatorId]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -144,7 +164,30 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
   const myRoute = optimalRoute?.fleet_routes?.find(r => r.operator_id === operatorId);
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 p-4 lg:p-6 flex flex-col">
+    <div className="min-h-screen bg-[#0f172a] text-slate-200 p-4 lg:p-6 flex flex-col relative">
+      {hasEmergency && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in" style={{ background: 'rgba(220,38,38,0.4)', backdropFilter: 'blur(8px)' }}>
+          <div className="bg-red-900 border-2 border-red-500 rounded-3xl p-8 max-w-lg w-full text-center shadow-[0_0_50px_rgba(220,38,38,0.6)] animate-pulse">
+            <AlertCircle className="w-20 h-20 text-white mx-auto mb-4 animate-bounce" />
+            <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-wider">Emergency Dispatch</h2>
+            <p className="text-red-200 font-bold mb-8 text-lg">A critical collection route has been recalculated and prioritized. Proceed immediately.</p>
+            <button
+              onClick={async () => {
+                try {
+                  await acknowledgeEmergency(operatorId);
+                  setHasEmergency(false);
+                } catch (e) {
+                  setError('Failed to acknowledge emergency.');
+                }
+              }}
+              className="bg-white text-red-900 font-black px-8 py-4 rounded-xl hover:scale-105 transition-all text-lg w-full shadow-xl"
+            >
+              Acknowledge & Proceed
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 glass-panel p-4 rounded-2xl">
         <div className="flex items-center gap-3">

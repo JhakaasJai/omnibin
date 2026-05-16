@@ -190,3 +190,13 @@ export const triggerEmergency = async () => {
     throw error;
   }
 };
+
+export const acknowledgeEmergency = async (operatorId) => {
+  try {
+    const response = await apiClient.put(`/api/operators/${operatorId}/acknowledge_emergency`);
+    return response.data;
+  } catch (error) {
+    console.error("Error acknowledging emergency:", error);
+    throw error;
+  }
+};

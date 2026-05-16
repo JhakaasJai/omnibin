@@ -50,7 +50,7 @@ def create_complaint(complaint: ComplaintCreate):
                         "content": [
                             {
                                 "type": "text", 
-                                "text": "Analyze this photo of a garbage dumping site. Estimate the quantity of garbage in liters. Output ONLY a valid JSON object with exactly two keys: 'garbage_quantity' (an integer representing the estimated volume in liters, e.g., 50, 200, 500) and 'confidence_score' (a float between 0.0 and 100.0). Do not include any other text."
+                                "text": "Analyze this photo. First, verify if it is an appropriate photo showing a street, public area, garbage, or waste issue. If it contains NSFW, explicit, or completely unrelated inappropriate content, set 'is_appropriate' to false. Otherwise, set it to true. If true, estimate the quantity of garbage in liters. Output ONLY a valid JSON object with exactly three keys: 'is_appropriate' (boolean), 'garbage_quantity' (an integer representing the estimated volume in liters, e.g., 50, 200), and 'confidence_score' (a float between 0.0 and 100.0). Do not include any other text."
                             },
                             {
                                 "type": "image_url",
@@ -69,8 +69,15 @@ def create_complaint(complaint: ComplaintCreate):
             reply = response.choices[0].message.content
             clean_reply = reply.strip().replace("```json", "").replace("```", "")
             data = json.loads(clean_reply)
+            
+            # Check for appropriateness
+            if not data.get("is_appropriate", True):
+                raise HTTPException(status_code=400, detail="Inappropriate image detected. Please upload a valid photo of a garbage site.")
+                
             new_complaint["garbage_quantity"] = int(data.get("garbage_quantity", 0))
             new_complaint["confidence_score"] = float(data.get("confidence_score", 85.0))
+        except HTTPException as he:
+            raise he # Re-raise HTTP exceptions immediately
         except Exception as e:
             print("AI Vision Analysis Error:", e)
             new_complaint["garbage_quantity"] = 0
