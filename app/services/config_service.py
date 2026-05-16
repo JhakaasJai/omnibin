@@ -5,7 +5,10 @@ from app.models import FleetConfig
 DEFAULT_CONFIG = {
     "van_capacity": 500.0,
     "mileage_kmpl": 5.5,
-    "fuel_price": 95.0
+    "fuel_price": 95.0,
+    "show_bin_nodes": True,
+    "show_text_complaints": True,
+    "show_photo_complaints": True
 }
 
 def get_fleet_config() -> Dict[str, Any]:

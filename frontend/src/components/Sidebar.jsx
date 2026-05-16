@@ -10,9 +10,9 @@ const menuItems = [
   { id: 'scanner',   label: 'AI Scanner',            icon: Scan },
 ];
 
-const Sidebar = ({ activeTab, setActiveTab, isConnected }) => (
+const Sidebar = ({ activeTab, setActiveTab, isConnected, isOpen }) => (
   <aside
-    className="fixed md:sticky bottom-0 md:top-0 left-0 right-0 md:w-60 flex flex-row md:flex-col h-[68px] md:h-screen z-50 shrink-0 glass-deep overflow-x-auto md:overflow-visible touch-pan-x"
+    className={`fixed md:sticky bottom-0 md:top-0 left-0 right-0 ${isOpen ? 'md:w-60 flex' : 'hidden md:hidden'} flex-row md:flex-col h-[68px] md:h-screen z-50 shrink-0 glass-deep overflow-x-auto md:overflow-visible touch-pan-x`}
     style={{ borderRight: '1px solid rgba(255,255,255,0.55)', borderTop: '1px solid rgba(255,255,255,0.55)', borderRadius: 0 }}
   >
     {/* Brand */}
@@ -41,7 +41,7 @@ const Sidebar = ({ activeTab, setActiveTab, isConnected }) => (
             key={id}
             id={`sidebar-${id}`}
             onClick={() => setActiveTab(id)}
-            className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-2 md:px-3.5 py-1.5 md:py-2.5 rounded-xl text-[10px] md:text-sm font-semibold text-center md:text-left transition-all duration-200 relative min-w-[64px] md:w-full"
+            className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-2 md:px-3.5 py-1.5 md:py-2.5 rounded-xl text-[10px] md:text-sm font-semibold text-center md:text-left transition-all duration-200 relative min-w-[64px] md:w-full ${!active ? 'hover:bg-white/50 hover:text-[#166534]' : ''}`}
             style={active ? {
               background: 'rgba(22,163,74,0.12)',
               border: '1px solid rgba(22,163,74,0.25)',
@@ -51,8 +51,6 @@ const Sidebar = ({ activeTab, setActiveTab, isConnected }) => (
               border: '1px solid transparent',
               color: 'rgba(13,74,47,0.55)',
             }}
-            onMouseEnter={e => { if (!active) { e.currentTarget.style.background='rgba(255,255,255,0.50)'; e.currentTarget.style.color='#166534'; } }}
-            onMouseLeave={e => { if (!active) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(13,74,47,0.55)'; } }}
           >
             {active && (
               <span className="hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full"

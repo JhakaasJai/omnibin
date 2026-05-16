@@ -50,8 +50,8 @@ export const fetchPredictedRoute = async (hoursAhead = 12, mode = 'static') => {
   }
 };
 
-export const setOperatorLive = async (operatorId, lat, lon) => {
-  const res = await apiClient.put(`/api/operators/${operatorId}/live`, { latitude: lat, longitude: lon });
+export const setOperatorLive = async (operatorId, lat, lon, heading = null) => {
+  const res = await apiClient.put(`/api/operators/${operatorId}/live`, { latitude: lat, longitude: lon, heading });
   return res.data;
 };
 
@@ -60,8 +60,8 @@ export const setOperatorOffline = async (operatorId) => {
   return res.data;
 };
 
-export const updateOperatorLocation = async (operatorId, lat, lon) => {
-  const res = await apiClient.put(`/api/operators/${operatorId}/location`, { latitude: lat, longitude: lon });
+export const updateOperatorLocation = async (operatorId, lat, lon, heading = null) => {
+  const res = await apiClient.put(`/api/operators/${operatorId}/location`, { latitude: lat, longitude: lon, heading });
   return res.data;
 };
 
@@ -161,12 +161,32 @@ export const updateComplaintStatus = async (id, status) => {
   }
 };
 
+export const deleteComplaint = async (id) => {
+  try {
+    const response = await apiClient.delete(`/api/complaints/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting complaint:", error);
+    throw error;
+  }
+};
+
 export const detectPlasticBottle = async (base64Image) => {
   try {
     const response = await apiClient.post('/api/detection/plastic-bottle', { photo_base64: base64Image });
     return response.data;
   } catch (error) {
     console.error("Error detecting plastic bottle:", error);
+    throw error;
+  }
+};
+
+export const triggerEmergency = async () => {
+  try {
+    const response = await apiClient.post('/api/operators/emergency');
+    return response.data;
+  } catch (error) {
+    console.error("Error triggering emergency dispatch:", error);
     throw error;
   }
 };

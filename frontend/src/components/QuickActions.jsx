@@ -2,7 +2,7 @@ import React from 'react';
 import { Route, Plus, FileText, Truck, Bell, Map, AlertOctagon, Dices, RefreshCw } from 'lucide-react';
 import { fetchOptimalRoute } from '../services/api';
 
-const QuickActions = ({ onSeed, seeding, onRandomize, randomizing, onConfig, onOptimizeRoute, routeLoading, setOptimalRoute, bins }) => {
+const QuickActions = ({ onSeed, seeding, onRandomize, randomizing, onConfig, onOptimizeRoute, routeLoading, onEmergency, setOptimalRoute, bins }) => {
   const actions = [
     {
       id: 'qa-optimize',
@@ -61,7 +61,7 @@ const QuickActions = ({ onSeed, seeding, onRandomize, randomizing, onConfig, onO
       color: '#dc2626',
       bg: 'rgba(220,38,38,0.10)',
       border: 'rgba(220,38,38,0.24)',
-      onClick: () => alert('Emergency dispatch triggered — notify field crew!'),
+      onClick: onEmergency ? onEmergency : () => alert('Emergency protocol offline.'),
     },
   ];
 

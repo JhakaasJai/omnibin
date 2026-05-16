@@ -48,7 +48,7 @@ def set_operator_live(operator_id: str, location: OperatorLocationUpdate):
     from pymongo import ReturnDocument
     res = operators_collection.find_one_and_update(
         {"_id": ObjectId(operator_id)},
-        {"$set": {"state": "live", "latitude": location.latitude, "longitude": location.longitude}},
+        {"$set": {"state": "live", "latitude": location.latitude, "longitude": location.longitude, "heading": location.heading}},
         return_document=ReturnDocument.AFTER
     )
     if not res:
@@ -74,7 +74,7 @@ def update_operator_location(operator_id: str, location: OperatorLocationUpdate)
     from pymongo import ReturnDocument
     res = operators_collection.find_one_and_update(
         {"_id": ObjectId(operator_id)},
-        {"$set": {"latitude": location.latitude, "longitude": location.longitude}},
+        {"$set": {"latitude": location.latitude, "longitude": location.longitude, "heading": location.heading}},
         return_document=ReturnDocument.AFTER
     )
     if not res:
@@ -106,3 +106,10 @@ def mock_live_operators():
             updated_ops.append(pos["username"])
             
     return {"message": f"Successfully set operators to live: {', '.join(updated_ops)}"}
+
+@router.post("/api/operators/emergency")
+def trigger_emergency_dispatch():
+    """Emergency dispatch to all live and offline operators."""
+    # Set all operators to live to simulate them coming online for dispatch
+    operators_collection.update_many({}, {"$set": {"state": "live"}})
+    return {"message": "Emergency dispatch signal sent to all operators."}

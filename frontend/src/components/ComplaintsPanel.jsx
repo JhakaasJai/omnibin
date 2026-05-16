@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { fetchComplaints, updateComplaintStatus } from '../services/api';
-import { RefreshCw, CheckCircle, Clock, AlertCircle, Camera } from 'lucide-react';
+import { RefreshCw, CheckCircle, Clock, AlertCircle, Camera, Menu } from 'lucide-react';
 
-const ComplaintsPanel = () => {
+const ComplaintsPanel = ({ toggleSidebar }) => {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(null);
@@ -25,10 +25,10 @@ const ComplaintsPanel = () => {
     return () => clearInterval(iv);
   }, []);
 
-  const handleStatusChange = async (id, newStatus) => {
+  const handleResolve = async (id) => {
     setUpdating(id);
     try {
-      await updateComplaintStatus(id, newStatus);
+      await updateComplaintStatus(id, 'Resolved');
       await loadComplaints();
     } catch (e) {
       console.error(e);
@@ -39,11 +39,20 @@ const ComplaintsPanel = () => {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="mb-5">
-        <h2 className="text-xl font-black" style={{ color: '#0d4a2f' }}>Citizen Complaints</h2>
-        <p className="text-xs mt-0.5" style={{ color: 'rgba(13,74,47,0.50)' }}>
-          Review and resolve anonymous reports from civilians regarding waste management issues.
-        </p>
+      <div className="mb-5 flex items-start gap-4">
+        <button 
+          onClick={toggleSidebar}
+          className="p-2.5 rounded-xl glass-card hover:scale-105 transition-all shrink-0 flex items-center justify-center mt-1"
+          style={{ color: '#0d4a2f' }}
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-xl font-black" style={{ color: '#0d4a2f' }}>Citizen Complaints</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(13,74,47,0.50)' }}>
+            Review and resolve anonymous reports from civilians regarding waste management issues.
+          </p>
+        </div>
       </div>
 
       <div className="glass-panel rounded-2xl p-4 text-left">
@@ -92,13 +101,13 @@ const ComplaintsPanel = () => {
                     <p className="text-sm" style={{ color: '#0d4a2f' }}>{c.description}</p>
                     
                     <div className="flex flex-wrap gap-2 mt-3">
-                      {c.garbage_quantity && c.garbage_quantity !== 'normal' && (
+                      {c.garbage_quantity !== undefined && c.garbage_quantity > 0 && (
                         <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider"
                               style={{ 
-                                background: c.garbage_quantity === 'critical' ? 'rgba(220,38,38,0.1)' : 'rgba(217,119,6,0.1)', 
-                                color: c.garbage_quantity === 'critical' ? '#dc2626' : '#d97706' 
+                                background: c.garbage_quantity >= 200 ? 'rgba(220,38,38,0.1)' : 'rgba(217,119,6,0.1)', 
+                                color: c.garbage_quantity >= 200 ? '#dc2626' : '#d97706' 
                               }}>
-                          {c.garbage_quantity} Quantity
+                          Est. Volume: {c.garbage_quantity}L
                         </span>
                       )}
                       {c.confidence_score !== undefined && c.photo_base64 && (
@@ -120,21 +129,11 @@ const ComplaintsPanel = () => {
                   <div className="flex flex-col gap-2 min-w-[120px]">
                     {!isResolved && (
                       <button 
-                        onClick={() => handleStatusChange(c.complaint_id, 'Resolved')}
+                        onClick={() => handleResolve(c.complaint_id)}
                         disabled={updating === c.complaint_id}
                         className="btn-primary py-2 text-xs rounded-lg"
                       >
-                        {updating === c.complaint_id ? 'Updating...' : 'Mark Resolved'}
-                      </button>
-                    )}
-                    {isResolved && (
-                      <button 
-                        onClick={() => handleStatusChange(c.complaint_id, 'Pending')}
-                        disabled={updating === c.complaint_id}
-                        className="py-2 text-xs rounded-lg font-semibold bg-white/50 hover:bg-white/70 transition-colors"
-                        style={{ color: '#0d4a2f' }}
-                      >
-                        {updating === c.complaint_id ? 'Updating...' : 'Reopen'}
+                        {updating === c.complaint_id ? 'Resolving...' : 'Mark Resolved'}
                       </button>
                     )}
                   </div>

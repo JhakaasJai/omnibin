@@ -109,7 +109,11 @@ def _calculate_osrm_route(start_node: Dict[str, Any], target_bins: List[Dict[str
             "bin_id": b_id,
             "location": b_info.get("location", ""),
             "fill_percentage": b_info.get("fill_percentage", 0.0),
-            "priority": b_info.get("priority", 1)
+            "capacity": b_info.get("capacity", 0.0),
+            "priority": b_info.get("priority", 1),
+            "is_complaint": b_info.get("is_complaint", False),
+            "latitude": b_info.get("latitude", b_info.get("lat")),
+            "longitude": b_info.get("longitude", b_info.get("lon"))
         })
         step_counter += 1
         
@@ -178,7 +182,11 @@ def _calculate_networkx_fallback_route(start_node: Dict[str, Any], target_bins: 
                 "bin_id": v,
                 "location": b_info.get("location", ""),
                 "fill_percentage": b_info.get("fill_percentage", 0.0),
-                "priority": b_info.get("priority", 1)
+                "capacity": b_info.get("capacity", 0.0),
+                "priority": b_info.get("priority", 1),
+                "is_complaint": b_info.get("is_complaint", False),
+                "latitude": b_info.get("latitude", b_info.get("lat")),
+                "longitude": b_info.get("longitude", b_info.get("lon"))
             })
             step_counter += 1
 
@@ -204,29 +212,66 @@ def calculate_optimal_route(mode: str = "static", predict_hours: int = 0) -> Dic
 
     target_bins = []
     total_volume = 0.0
-    for b in all_bins:
-        if predict_hours > 0:
-            from app.services.prediction import predict_future_fill_level
-            prediction = predict_future_fill_level(b["bin_id"], predict_hours)
-            fill = prediction.predicted_fill_percentage
-            b["fill_percentage"] = fill
-            if fill >= 80.0:
-                status = "Critical"
-            elif fill >= 50.0:
-                status = "Needs Collection"
+    if config.get("show_bin_nodes", True):
+        for b in all_bins:
+            if predict_hours > 0:
+                from app.services.prediction import predict_future_fill_level
+                prediction = predict_future_fill_level(b["bin_id"], predict_hours)
+                fill = prediction.predicted_fill_percentage
+                b["fill_percentage"] = fill
+                if fill >= 80.0:
+                    status = "Critical"
+                elif fill >= 50.0:
+                    status = "Needs Collection"
+                else:
+                    status = "OK"
+                b["status"] = status
             else:
-                status = "OK"
-            b["status"] = status
-        else:
-            fill = b.get("fill_percentage", 0.0)
-            status = b.get("status", "OK")
-            
-        prio = b.get("priority", 1)
-        cap = b.get("capacity", 100.0)
+                fill = b.get("fill_percentage", 0.0)
+                status = b.get("status", "OK")
+                
+            prio = b.get("priority", 1)
+            cap = b.get("capacity", 100.0)
 
-        if fill >= 70.0 or status in ["Needs Collection", "Critical"] or (prio == 3 and fill >= 50.0):
-            target_bins.append(b)
-            total_volume += (fill / 100.0) * cap
+            if fill >= 70.0 or status in ["Needs Collection", "Critical"] or (prio == 3 and fill >= 50.0):
+                target_bins.append(b)
+                total_volume += (fill / 100.0) * cap
+
+    from app.database import complaints_collection
+    # Query all pending complaints with locations
+    pending_complaints = list(complaints_collection.find({"status": "Pending", "latitude": {"$ne": None}, "longitude": {"$ne": None}}))
+    
+    show_photo = config.get("show_photo_complaints", True)
+    show_text = config.get("show_text_complaints", True)
+    
+    for c in pending_complaints:
+        is_photo = c.get("photo_base64") is not None
+        if is_photo and not show_photo:
+            continue
+        if not is_photo and not show_text:
+            continue
+            
+        # Default volume for text complaints is 50L if not estimated
+        volume = c.get("garbage_quantity")
+        if volume is None or volume <= 0:
+            volume = 50
+            
+        # Prevent impossible demands that break the CVRP solver
+        if volume > van_capacity:
+            volume = van_capacity
+            
+        target_bins.append({
+            "bin_id": c["complaint_id"],
+            "location": c.get("location", "Photo Complaint" if is_photo else "Text Complaint"),
+            "latitude": c["latitude"],
+            "longitude": c["longitude"],
+            "fill_percentage": 100.0,
+            "capacity": volume,
+            "priority": 1, # High priority for complaints
+            "status": "Pending",
+            "is_complaint": True
+        })
+        total_volume += volume
 
     live_ops = []
     starts_data = []
@@ -354,6 +399,8 @@ def calculate_optimal_route(mode: str = "static", predict_hours: int = 0) -> Dic
     demands = [0] * num_nodes
     for i, b in enumerate(target_bins, start=num_starts):
         volume = (b.get("fill_percentage", 0) / 100.0) * b.get("capacity", 100.0)
+        if volume > van_capacity:
+            volume = van_capacity
         demands[i] = int(volume * 10)  # Scale by 10 for integer precision
         
     scaled_van_capacity = int(van_capacity * 10)

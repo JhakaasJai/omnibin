@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Camera, CheckCircle, XCircle, Scan, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, Camera, CheckCircle, XCircle, Scan, Loader2, AlertCircle, Menu } from 'lucide-react';
 import { detectPlasticBottle } from '../services/api';
 
-const BottleScanner = () => {
+const BottleScanner = ({ toggleSidebar }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -57,15 +57,24 @@ const BottleScanner = () => {
 
   return (
     <div className="space-y-4 animate-fade-in max-w-4xl mx-auto">
-      <div className="mb-5">
-        <div className="flex items-center gap-1.5 mb-1">
-          <Scan className="w-4 h-4" style={{ color: '#16a34a' }} />
-          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#16a34a' }}>AI Scanner Vision</span>
+      <div className="mb-5 flex items-start gap-4">
+        <button 
+          onClick={toggleSidebar}
+          className="p-2.5 rounded-xl glass-card hover:scale-105 transition-all shrink-0 flex items-center justify-center mt-1"
+          style={{ color: '#0d4a2f' }}
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <Scan className="w-4 h-4" style={{ color: '#16a34a' }} />
+            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#16a34a' }}>AI Scanner Vision</span>
+          </div>
+          <h1 className="text-2xl font-black" style={{ color: '#0d4a2f' }}>Plastic Bottle Detection</h1>
+          <p className="text-sm mt-1" style={{ color: 'rgba(13,74,47,0.60)' }}>
+            Upload an image to verify whether it contains a plastic bottle using the Llama 3.2 Vision Model.
+          </p>
         </div>
-        <h1 className="text-2xl font-black" style={{ color: '#0d4a2f' }}>Plastic Bottle Detection</h1>
-        <p className="text-sm mt-1" style={{ color: 'rgba(13,74,47,0.60)' }}>
-          Upload an image to verify whether it contains a plastic bottle using the Llama 3.2 Vision Model.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

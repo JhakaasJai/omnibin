@@ -14,11 +14,11 @@ import BottleScanner from './BottleScanner';
 import {
   fetchBins, fetchBinHistory, seedBins,
   randomizeBins, fetchOptimalRoute, fetchConfig, fetchAllOperators,
-  fetchPredictedBins, fetchPredictedRoute
+  fetchPredictedBins, fetchPredictedRoute, triggerEmergency
 } from '../services/api';
 import {
   X, Activity, Filter, Settings, Recycle,
-  Leaf, RefreshCw, ChevronRight
+  Leaf, RefreshCw, ChevronRight, Menu
 } from 'lucide-react';
 
 /* ─── derived helpers ───────────────────────────────────────── */
@@ -55,6 +55,8 @@ function AdminDashboard() {
   const [operators,         setOperators]         = useState([]);
   const [predicting,        setPredicting]        = useState(false);
   const [predictions,       setPredictions]       = useState({});
+  const [isSidebarOpen,     setIsSidebarOpen]     = useState(true);
+  const [routeSignature,    setRouteSignature]    = useState('');
 
   /* polling */
   useEffect(() => {
@@ -71,6 +73,36 @@ function AdminDashboard() {
     const iv = setInterval(load, 5000);
     return () => clearInterval(iv);
   }, []);
+
+  /* auto-load initial route and handle mode switches */
+  useEffect(() => {
+    fetchOptimalRoute(routingMode)
+      .then(setOptimalRoute)
+      .catch(console.error);
+  }, [routingMode]);
+
+  /* Smart Auto-Routing Trigger */
+  useEffect(() => {
+    // Generate a unique string representing the current routing parameters
+    // We only care about bins that need collection, and operators that are online.
+    const activeBins = bins.filter(b => b.status === 'Critical' || b.status === 'Needs Collection')
+                           .map(b => b.bin_id).sort().join(',');
+    const activeOps  = operators.filter(o => o.state === 'live')
+                                .map(o => o.operator_id).sort().join(',');
+    
+    const newSignature = `${activeBins}|${activeOps}`;
+
+    // If the signature changes (after initial load), trigger a seamless background re-route
+    if (routeSignature !== '' && routeSignature !== newSignature) {
+      console.log('Routing parameters changed, auto-recalculating optimal route...');
+      fetchOptimalRoute(routingMode)
+        .then(setOptimalRoute)
+        .catch(console.error);
+    }
+    
+    // Always update the tracked signature
+    setRouteSignature(newSignature);
+  }, [bins, operators, routingMode]);
 
   /* background prediction polling for 'hours to full' */
   useEffect(() => {
@@ -89,7 +121,7 @@ function AdminDashboard() {
 
   /* history on bin select */
   useEffect(() => {
-    if (!selectedBin) { setBinHistory(null); return; }
+    if (!selectedBin || selectedBin.complaint_id) { setBinHistory(null); return; }
     const load = async () => {
       setHistoryLoading(true);
       try { setBinHistory((await fetchBinHistory(selectedBin.bin_id))?.history || []); }
@@ -139,6 +171,16 @@ function AdminDashboard() {
     finally { setPredicting(false); }
   };
 
+  const handleEmergency = async () => {
+    try {
+      await triggerEmergency();
+      // Operators fetched by the 5-second polling interval will reflect this change
+      alert('Emergency Protocol Activated: All field operators have been notified and brought online for immediate dispatch!');
+    } catch (e) {
+      alert('Failed to trigger emergency protocol.');
+    }
+  };
+
   const handleConfigSaved = async () => {
     try { 
       setOptimalRoute(await fetchOptimalRoute(routingMode));
@@ -147,22 +189,43 @@ function AdminDashboard() {
     catch (e) { console.error(e); }
   };
 
+  const handleToggleLayer = async (layerKey) => {
+    if (!config) return;
+    const newConfig = { ...config, [layerKey]: !config[layerKey] };
+    setConfig(newConfig);
+    try {
+      // Must import updateConfig from api
+      const { updateConfig } = await import('../services/api');
+      await updateConfig(newConfig);
+      handleConfigSaved();
+    } catch (e) { console.error(e); }
+  };
+
   /* shared header */
   const PageHeader = ({ title, sub }) => (
-    <div className="mb-5">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Leaf className="w-3 h-3" style={{ color: '#16a34a' }} />
-        <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#16a34a' }}>OmniBin · Live</span>
+    <div className="mb-5 flex items-start gap-4">
+      <button 
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="p-2.5 rounded-xl glass-card hover:scale-105 transition-all shrink-0 flex items-center justify-center mt-1"
+        style={{ color: '#0d4a2f' }}
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+      <div>
+        <div className="flex items-center gap-1.5 mb-1">
+          <Leaf className="w-3 h-3" style={{ color: '#16a34a' }} />
+          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#16a34a' }}>OmniBin · Live</span>
+        </div>
+        <h1 className="text-xl font-black" style={{ color: '#0d4a2f' }}>{title}</h1>
+        <p className="text-xs mt-0.5" style={{ color: 'rgba(13,74,47,0.50)' }}>{sub}</p>
       </div>
-      <h1 className="text-xl font-black" style={{ color: '#0d4a2f' }}>{title}</h1>
-      <p className="text-xs mt-0.5" style={{ color: 'rgba(13,74,47,0.50)' }}>{sub}</p>
     </div>
   );
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen relative">
       <div className="nature-bg" />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isConnected={isConnected} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isConnected={isConnected} isOpen={isSidebarOpen} />
 
       <main className="flex-1 p-5 lg:p-6 pb-24 md:pb-6 overflow-y-auto relative z-10">
 
@@ -170,7 +233,7 @@ function AdminDashboard() {
         {activeTab === 'dashboard' && (
           <div className="space-y-4 animate-fade-in">
             {/* Top bar */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 relative z-20">
               <PageHeader
                 title="Operations Dashboard"
                 sub="Real-time smart bin telemetry · AI-driven fleet dispatch · Bhopal Municipal Corp."
@@ -213,33 +276,32 @@ function AdminDashboard() {
               </div>
             </div>
 
-            {/* 10-stat overview */}
-            <OverviewCards bins={bins} optimalRoute={optimalRoute} config={config} operators={operators} />
-
-            {/* Quick actions */}
+            {/* Quick actions moved to top to prevent being cut off by scroll */}
             <QuickActions
               onSeed={handleSeed} seeding={seeding}
               onRandomize={handleRandomize} randomizing={randomizing}
               onConfig={() => setIsConfigModalOpen(true)}
               onOptimizeRoute={handleOptimizeRoute} routeLoading={routeLoading}
+              onEmergency={handleEmergency}
               setOptimalRoute={setOptimalRoute}
               bins={bins}
             />
 
-            {/* Map + Alerts row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                <MapView bins={bins} optimalRoute={optimalRoute} setSelectedBin={setSelectedBin} selectedVan={selectedVan} operators={operators} routingMode={routingMode} predictions={predictions} />
-              </div>
-              <div className="flex flex-col gap-4">
-                <AlertsPanel bins={bins} />
-              </div>
+            {/* Full Width Map */}
+            <div className="w-full">
+              <MapView bins={bins} optimalRoute={optimalRoute} setSelectedBin={setSelectedBin} selectedVan={selectedVan} operators={operators} routingMode={routingMode} setRoutingMode={setRoutingMode} predictions={predictions} config={config} onToggleLayer={handleToggleLayer} />
             </div>
 
-            {/* Route + Fuel row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 10-stat overview moved to place of old map */}
+            <OverviewCards bins={bins} optimalRoute={optimalRoute} config={config} operators={operators} />
+
+            {/* Route + Fuel & Alerts row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 relative z-10">
               <RoutePanel optimalRoute={optimalRoute} setOptimalRoute={setOptimalRoute} bins={bins} routingMode={routingMode} setRoutingMode={setRoutingMode} />
-              <FuelAnalytics optimalRoute={optimalRoute} config={config} />
+              <div className="flex flex-col gap-4">
+                <FuelAnalytics optimalRoute={optimalRoute} config={config} />
+                <AlertsPanel bins={bins} />
+              </div>
             </div>
 
             {/* Bin monitoring table */}
@@ -266,10 +328,8 @@ function AdminDashboard() {
                       <tr
                         key={b.bin_id}
                         onClick={() => setSelectedBin(b)}
-                        className="cursor-pointer transition-all rounded-xl"
+                        className="cursor-pointer transition-colors rounded-xl hover:bg-white/40"
                         style={{ borderBottom: '1px solid rgba(255,255,255,0.35)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.40)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
                         <td className="py-2.5 px-2 font-semibold" style={{ color: '#0d4a2f' }}>{b.location}</td>
                         <td className="py-2.5 px-2 font-mono text-[10px]" style={{ color: 'rgba(13,74,47,0.50)' }}>{b.bin_id}</td>
@@ -318,7 +378,7 @@ function AdminDashboard() {
         {activeTab === 'map' && (
           <div className="space-y-4 animate-fade-in">
             <PageHeader title="Live Telemetry Map" sub="Click markers for sensor details · Active routes shown in real-time" />
-            <MapView bins={bins} optimalRoute={optimalRoute} setSelectedBin={setSelectedBin} selectedVan={selectedVan} operators={operators} routingMode={routingMode} predictions={predictions} />
+            <MapView bins={bins} optimalRoute={optimalRoute} setSelectedBin={setSelectedBin} selectedVan={selectedVan} operators={operators} routingMode={routingMode} setRoutingMode={setRoutingMode} predictions={predictions} config={config} onToggleLayer={handleToggleLayer} />
           </div>
         )}
 
@@ -326,11 +386,13 @@ function AdminDashboard() {
         {activeTab === 'routes' && (
           <div className="space-y-4 animate-fade-in">
             <PageHeader title="Route Optimizer" sub="CVRP + OR-Tools · OSRM road-snapped geometry · Multi-van dispatch" />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="w-full">
+              <MapView bins={bins} optimalRoute={optimalRoute} setSelectedBin={setSelectedBin} selectedVan={selectedVan} operators={operators} routingMode={routingMode} setRoutingMode={setRoutingMode} predictions={predictions} config={config} onToggleLayer={handleToggleLayer} />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
               <RoutePanel optimalRoute={optimalRoute} setOptimalRoute={setOptimalRoute} bins={bins} routingMode={routingMode} setRoutingMode={setRoutingMode} />
               <FuelAnalytics optimalRoute={optimalRoute} config={config} />
             </div>
-            <MapView bins={bins} optimalRoute={optimalRoute} setSelectedBin={setSelectedBin} selectedVan={selectedVan} operators={operators} routingMode={routingMode} predictions={predictions} />
           </div>
         )}
 
@@ -360,12 +422,12 @@ function AdminDashboard() {
 
         {/* ── COMPLAINTS tab ──────────────────────────────────── */}
         {activeTab === 'complaints' && (
-          <ComplaintsPanel />
+          <ComplaintsPanel toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         )}
 
         {/* ── SCANNER tab ─────────────────────────────────────── */}
         {activeTab === 'scanner' && (
-          <BottleScanner />
+          <BottleScanner toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         )}
       </main>
 
@@ -382,11 +444,13 @@ function AdminDashboard() {
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center"
                      style={{ background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.25)' }}>
-                  <Recycle className="w-4 h-4" style={{ color: '#16a34a' }} />
+                  {selectedBin.complaint_id ? <Activity className="w-4 h-4" style={{ color: '#16a34a' }} /> : <Recycle className="w-4 h-4" style={{ color: '#16a34a' }} />}
                 </div>
                 <div>
-                  <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#0d9488' }}>IoT Sensor Logbook</span>
-                  <h3 className="font-bold text-sm" style={{ color: '#0d4a2f' }}>{selectedBin.location}</h3>
+                  <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#0d9488' }}>
+                    {selectedBin.complaint_id ? 'Citizen Report Details' : 'IoT Sensor Logbook'}
+                  </span>
+                  <h3 className="font-bold text-sm" style={{ color: '#0d4a2f' }}>{selectedBin.location || 'Unknown Location'}</h3>
                 </div>
               </div>
               <button onClick={() => setSelectedBin(null)}
@@ -397,73 +461,100 @@ function AdminDashboard() {
             </div>
 
             <div className="p-5 overflow-y-auto flex-1 space-y-4">
-              {/* key stats */}
-              <div className="grid grid-cols-5 gap-2 p-3 rounded-xl text-center"
-                   style={{ background: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.65)' }}>
-                {[
-                  { label: 'Fill',     value: `${selectedBin.fill_percentage}%`, color: selectedBin.fill_percentage > 80 ? '#dc2626' : '#0d4a2f' },
-                  { label: 'Capacity', value: `${selectedBin.capacity}L`,        color: '#0d9488' },
-                  { label: 'Priority', value: `P${selectedBin.priority}`,        color: '#d97706' },
-                  { label: 'Conf.',    value: `${(selectedBin.confidence_percent ?? 100).toFixed(0)}%`, color: (selectedBin.confidence_percent ?? 100) > 80 ? '#16a34a' : (selectedBin.confidence_percent ?? 100) > 50 ? '#d97706' : '#dc2626' },
-                  { label: 'Status',   value: selectedBin.status,                color: selectedBin.status === 'Critical' ? '#dc2626' : '#16a34a' },
-                ].map(m => (
-                  <div key={m.label}>
-                    <span className="text-[9px] block mb-1" style={{ color: 'rgba(13,74,47,0.40)' }}>{m.label}</span>
-                    <span className="font-black text-sm" style={{ color: m.color }}>{m.value}</span>
+              {selectedBin.complaint_id ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2 p-3 rounded-xl text-center"
+                       style={{ background: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.65)' }}>
+                    <div>
+                      <span className="text-[9px] block mb-1" style={{ color: 'rgba(13,74,47,0.40)' }}>Est. Volume</span>
+                      <span className="font-black text-sm" style={{ color: '#dc2626' }}>{selectedBin.garbage_quantity || 0}L</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] block mb-1" style={{ color: 'rgba(13,74,47,0.40)' }}>AI Confidence</span>
+                      <span className="font-black text-sm" style={{ color: '#0d9488' }}>{(selectedBin.confidence_score ?? 100).toFixed(1)}%</span>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.40)', border: '1px solid rgba(255,255,255,0.65)' }}>
+                    <span className="text-[9px] block mb-1 font-bold uppercase tracking-widest" style={{ color: 'rgba(13,74,47,0.40)' }}>Description</span>
+                    <p className="text-xs font-medium" style={{ color: '#0d4a2f' }}>"{selectedBin.description}"</p>
+                  </div>
+                  {selectedBin.photo_base64 && (
+                    <div className="rounded-xl overflow-hidden shadow-sm border border-white/50">
+                      <img src={selectedBin.photo_base64} alt="Complaint" className="w-full h-auto object-cover max-h-[300px]" />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* key stats */}
+                  <div className="grid grid-cols-5 gap-2 p-3 rounded-xl text-center"
+                       style={{ background: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.65)' }}>
+                    {[
+                      { label: 'Fill',     value: `${selectedBin.fill_percentage}%`, color: selectedBin.fill_percentage > 80 ? '#dc2626' : '#0d4a2f' },
+                      { label: 'Capacity', value: `${selectedBin.capacity}L`,        color: '#0d9488' },
+                      { label: 'Priority', value: `P${selectedBin.priority}`,        color: '#d97706' },
+                      { label: 'Conf.',    value: `${(selectedBin.confidence_percent ?? 100).toFixed(0)}%`, color: (selectedBin.confidence_percent ?? 100) > 80 ? '#16a34a' : (selectedBin.confidence_percent ?? 100) > 50 ? '#d97706' : '#dc2626' },
+                      { label: 'Status',   value: selectedBin.status,                color: selectedBin.status === 'Critical' ? '#dc2626' : '#16a34a' },
+                    ].map(m => (
+                      <div key={m.label}>
+                        <span className="text-[9px] block mb-1" style={{ color: 'rgba(13,74,47,0.40)' }}>{m.label}</span>
+                        <span className="font-black text-sm" style={{ color: m.color }}>{m.value}</span>
+                      </div>
+                    ))}
+                  </div>
 
-              {/* fill bar */}
-              <FillBar pct={selectedBin.fill_percentage} />
+                  {/* fill bar */}
+                  <FillBar pct={selectedBin.fill_percentage} />
 
-              {/* history timeline */}
-              <div>
-                <h4 className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5"
-                    style={{ color: 'rgba(13,74,47,0.50)' }}>
-                  <Activity className="w-3 h-3" style={{ color: '#0d9488' }} /> History Timeline
-                </h4>
-                {historyLoading ? (
-                  <div className="py-6 flex items-center justify-center gap-2"
-                       style={{ color: 'rgba(13,74,47,0.40)' }}>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span className="text-xs">Loading records...</span>
+                  {/* history timeline */}
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5"
+                        style={{ color: 'rgba(13,74,47,0.50)' }}>
+                      <Activity className="w-3 h-3" style={{ color: '#0d9488' }} /> History Timeline
+                    </h4>
+                    {historyLoading ? (
+                      <div className="py-6 flex items-center justify-center gap-2"
+                           style={{ color: 'rgba(13,74,47,0.40)' }}>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span className="text-xs">Loading records...</span>
+                      </div>
+                    ) : binHistory?.length > 0 ? (
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {binHistory.map((item, i) => {
+                          const d = new Date(item.timestamp);
+                          const time = isNaN(d.getTime()) ? item.timestamp : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                          const date = isNaN(d.getTime()) ? '' : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                          return (
+                            <div key={i} className="p-2.5 rounded-xl flex items-center justify-between"
+                                 style={{ background: 'rgba(255,255,255,0.48)', border: '1px solid rgba(255,255,255,0.65)' }}>
+                              <div>
+                                <span className="font-mono text-[10px] block" style={{ color: '#0d4a2f' }}>{time}</span>
+                                <span className="text-[9px]" style={{ color: 'rgba(13,74,47,0.45)' }}>{date}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {item.confidence_percent !== undefined && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md" 
+                                        style={{ background: item.confidence_percent > 80 ? 'rgba(22,163,74,0.1)' : 'rgba(220,38,38,0.1)', color: item.confidence_percent > 80 ? '#16a34a' : '#dc2626' }}>
+                                    C:{item.confidence_percent.toFixed(0)}%
+                                  </span>
+                                )}
+                                <FillBar pct={item.fill_percentage} />
+                                <span className="font-bold text-xs w-8 text-right" style={{ color: '#0d4a2f' }}>
+                                  {item.fill_percentage}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs italic py-4 text-center" style={{ color: 'rgba(13,74,47,0.35)' }}>
+                        No archive records for this sensor token.
+                      </p>
+                    )}
                   </div>
-                ) : binHistory?.length > 0 ? (
-                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                    {binHistory.map((item, i) => {
-                      const d = new Date(item.timestamp);
-                      const time = isNaN(d.getTime()) ? item.timestamp : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                      const date = isNaN(d.getTime()) ? '' : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                      return (
-                        <div key={i} className="p-2.5 rounded-xl flex items-center justify-between"
-                             style={{ background: 'rgba(255,255,255,0.48)', border: '1px solid rgba(255,255,255,0.65)' }}>
-                          <div>
-                            <span className="font-mono text-[10px] block" style={{ color: '#0d4a2f' }}>{time}</span>
-                            <span className="text-[9px]" style={{ color: 'rgba(13,74,47,0.45)' }}>{date}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {item.confidence_percent !== undefined && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md" 
-                                    style={{ background: item.confidence_percent > 80 ? 'rgba(22,163,74,0.1)' : 'rgba(220,38,38,0.1)', color: item.confidence_percent > 80 ? '#16a34a' : '#dc2626' }}>
-                                C:{item.confidence_percent.toFixed(0)}%
-                              </span>
-                            )}
-                            <FillBar pct={item.fill_percentage} />
-                            <span className="font-bold text-xs w-8 text-right" style={{ color: '#0d4a2f' }}>
-                              {item.fill_percentage}%
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs italic py-4 text-center" style={{ color: 'rgba(13,74,47,0.35)' }}>
-                    No archive records for this sensor token.
-                  </p>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>

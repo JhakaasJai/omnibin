@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Radio, MapPin, Truck, RefreshCw, AlertCircle } from 'lucide-react';
-import { fetchBins, fetchOptimalRoute, setOperatorLive, setOperatorOffline, updateOperatorLocation } from '../services/api';
+import { LogOut, Radio, MapPin, Truck, RefreshCw, AlertCircle, Camera, CheckCircle } from 'lucide-react';
+import { fetchBins, fetchOptimalRoute, fetchConfig, setOperatorLive, setOperatorOffline, updateOperatorLocation, updateComplaintStatus } from '../services/api';
 import MapView from './MapView';
+
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
 
 const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
   const [bins, setBins] = useState([]);
@@ -11,10 +23,18 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedBin, setSelectedBin] = useState(null);
+  const [config, setConfig] = useState(null);
+  const watchIdRef = React.useRef(null);
+  const isLiveRef = React.useRef(false);
+
+  useEffect(() => {
+    isLiveRef.current = isLive;
+  }, [isLive]);
 
   const fetchDashboardData = async () => {
     try {
       setBins(await fetchBins());
+      setConfig(await fetchConfig());
       if (isLive) {
         const routeData = await fetchOptimalRoute('dynamic');
         setOptimalRoute(routeData);
@@ -31,6 +51,10 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
   }, [isLive]);
 
   const handleLogout = async () => {
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
     if (isLive && operatorId) {
       try {
         await setOperatorOffline(operatorId);
@@ -44,6 +68,10 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
 
   const handleGoLive = async (useMock = false) => {
     if (isLive) {
+      if (watchIdRef.current) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
       setLoading(true);
       try {
         await setOperatorOffline(operatorId);
@@ -61,38 +89,54 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
     setLoading(true);
     setError('');
 
-    const setLocationAndLive = async (lat, lon) => {
+    const setLocationAndLive = async (lat, lon, heading = null) => {
       try {
-        await setOperatorLive(operatorId, lat, lon);
-        setIsLive(true);
-        setLocation({ lat, lon });
-        fetchDashboardData();
+        if (!isLiveRef.current) {
+          await setOperatorLive(operatorId, lat, lon, heading);
+          setIsLive(true);
+          setLocation({ lat, lon });
+          fetchDashboardData();
+        } else {
+          await updateOperatorLocation(operatorId, lat, lon, heading);
+          setLocation({ lat, lon });
+        }
       } catch (e) {
-        setError('Failed to go live.');
+        setError('Failed to go live or update location.');
       } finally {
         setLoading(false);
       }
     };
 
     if (useMock) {
-      // Mock locations somewhere in Bhopal
+      // Mock locations somewhere in Bhopal with random headings
       const mockLats = [23.235, 23.250, 23.220];
       const mockLons = [77.450, 77.410, 77.470];
       const idx = Math.floor(Math.random() * mockLats.length);
-      setLocationAndLive(mockLats[idx], mockLons[idx]);
+      const mockHeading = Math.floor(Math.random() * 360);
+      setLocationAndLive(mockLats[idx], mockLons[idx], mockHeading);
     } else {
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => setLocationAndLive(pos.coords.latitude, pos.coords.longitude),
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          (pos) => setLocationAndLive(pos.coords.latitude, pos.coords.longitude, pos.coords.heading),
           (err) => {
-            setError('Geolocation failed. Please allow access or use Mock Location.');
+            setError('Geolocation tracking failed. Please allow access.');
             setLoading(false);
-          }
+          },
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
         );
       } else {
         setError('Geolocation is not supported by your browser.');
         setLoading(false);
       }
+    }
+  };
+
+  const handleResolveComplaint = async (complaintId) => {
+    try {
+      await updateComplaintStatus(complaintId, 'Resolved');
+      fetchDashboardData();
+    } catch (e) {
+      setError('Failed to resolve complaint. Check network.');
     }
   };
 
@@ -173,17 +217,42 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
                 <div>
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Your Route Details</h3>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                    {myRoute.details.map(step => (
-                      <div key={step.bin_id} className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 h-6 rounded-lg bg-teal-900/50 text-teal-400 text-xs font-bold flex items-center justify-center">
-                            {step.step_order}
-                          </span>
-                          <p className="text-xs font-semibold text-white">{step.location || step.bin_id}</p>
+                    {myRoute.details.map(step => {
+                      const isNear = location && step.latitude && step.longitude && haversineDistance(location.lat, location.lon, step.latitude, step.longitude) <= 0.1;
+
+                      return (
+                        <div key={step.bin_id} className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-lg bg-teal-900/50 text-teal-400 text-xs font-bold flex items-center justify-center shrink-0">
+                                {step.step_order}
+                              </span>
+                              <div>
+                                <p className="text-xs font-semibold text-white truncate max-w-[200px]">{step.location || step.bin_id}</p>
+                                {step.is_complaint && (
+                                  <span className="mt-1 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-400 border border-purple-500/30 w-fit">
+                                    <Camera className="w-3 h-3" /> Photo Complaint (Vol: {step.capacity || 0}L)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {!step.is_complaint && <span className="text-xs font-black text-emerald-400">{step.fill_percentage}%</span>}
+                          </div>
+                          
+                          {step.is_complaint && isNear && (
+                            <div className="flex justify-end mt-1 border-t border-slate-700/50 pt-2">
+                              <button
+                                onClick={() => handleResolveComplaint(step.bin_id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 transition-all"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Mark as Resolved
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <span className="text-xs font-black text-emerald-400">{step.fill_percentage}%</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -208,6 +277,7 @@ const OperatorDashboard = ({ operatorId, setRole, setOperatorId }) => {
             optimalRoute={isLive && myRoute ? { fleet_routes: [myRoute] } : { fleet_routes: [] }} 
             setSelectedBin={setSelectedBin}
             selectedVan={myRoute ? myRoute.van_id.toString() : 'ALL'} 
+            config={config}
           />
         </div>
       </div>

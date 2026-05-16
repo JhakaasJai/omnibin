@@ -12,6 +12,9 @@ const FleetConfigModal = ({ isOpen, onClose, config, setConfig, onSaveSuccess })
       van_capacity: config.van_capacity ?? 500.0,
       mileage_kmpl: config.mileage_kmpl ?? 5.5,
       fuel_price:   config.fuel_price   ?? 95.0,
+      show_bin_nodes: config.show_bin_nodes ?? true,
+      show_text_complaints: config.show_text_complaints ?? true,
+      show_photo_complaints: config.show_photo_complaints ?? true,
     });
   }, [config]);
 

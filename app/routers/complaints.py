@@ -32,7 +32,7 @@ def create_complaint(complaint: ComplaintCreate):
         "photo_base64": complaint.photo_base64,
         "timestamp": datetime.now().isoformat(),
         "status": "Pending",
-        "garbage_quantity": "normal",
+        "garbage_quantity": 0,
         "confidence_score": 100.0
     }
     
@@ -50,7 +50,7 @@ def create_complaint(complaint: ComplaintCreate):
                         "content": [
                             {
                                 "type": "text", 
-                                "text": "Analyze this photo of a garbage dumping site. Output ONLY a valid JSON object with exactly two keys: 'garbage_quantity' (must be one of 'critical', 'moderate', or 'normal') and 'confidence_score' (a float between 0.0 and 100.0). Do not include any other text."
+                                "text": "Analyze this photo of a garbage dumping site. Estimate the quantity of garbage in liters. Output ONLY a valid JSON object with exactly two keys: 'garbage_quantity' (an integer representing the estimated volume in liters, e.g., 50, 200, 500) and 'confidence_score' (a float between 0.0 and 100.0). Do not include any other text."
                             },
                             {
                                 "type": "image_url",
@@ -69,12 +69,12 @@ def create_complaint(complaint: ComplaintCreate):
             reply = response.choices[0].message.content
             clean_reply = reply.strip().replace("```json", "").replace("```", "")
             data = json.loads(clean_reply)
-            new_complaint["garbage_quantity"] = data.get("garbage_quantity", "moderate")
+            new_complaint["garbage_quantity"] = int(data.get("garbage_quantity", 0))
             new_complaint["confidence_score"] = float(data.get("confidence_score", 85.0))
         except Exception as e:
             print("AI Vision Analysis Error:", e)
-            new_complaint["garbage_quantity"] = "moderate"
-            new_complaint["confidence_score"] = 50.0
+            new_complaint["garbage_quantity"] = 0
+            new_complaint["confidence_score"] = 0.0
 
     complaints_collection.insert_one(new_complaint.copy())
     return new_complaint
@@ -101,5 +101,16 @@ def update_complaint_status(complaint_id: str, update_data: ComplaintUpdate):
     )
     if result:
         return result
+    
+    raise HTTPException(status_code=404, detail="Complaint not found")
+
+@router.delete("/{complaint_id}")
+def delete_complaint(complaint_id: str):
+    """
+    Delete a complaint from the database.
+    """
+    result = complaints_collection.delete_one({"complaint_id": complaint_id})
+    if result.deleted_count > 0:
+        return {"message": "Complaint deleted successfully"}
     
     raise HTTPException(status_code=404, detail="Complaint not found")

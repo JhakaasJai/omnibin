@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Route, Sparkles, RefreshCw, AlertCircle, CheckCircle, Truck, Fuel, DollarSign, MapPin } from 'lucide-react';
+import { Route, Sparkles, RefreshCw, AlertCircle, CheckCircle, Truck, Fuel, DollarSign, MapPin, Camera } from 'lucide-react';
 import { fetchOptimalRoute } from '../services/api';
 
 const RoutePanel = ({ optimalRoute, setOptimalRoute, bins = [], routingMode, setRoutingMode }) => {
@@ -79,7 +79,7 @@ const RoutePanel = ({ optimalRoute, setOptimalRoute, bins = [], routingMode, set
 
       {/* Route results */}
       {optimalRoute?.fleet_totals && (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-4 animate-fade-in flex-1 flex flex-col min-h-0">
           {/* Summary stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-xl"
                style={{ background: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.65)' }}>
@@ -107,8 +107,8 @@ const RoutePanel = ({ optimalRoute, setOptimalRoute, bins = [], routingMode, set
           </div>
 
           {/* Van manifest */}
-          <div>
-            <h3 className="text-[10px] font-black uppercase tracking-widest mb-3"
+          <div className="flex-1 flex flex-col min-h-0">
+            <h3 className="text-[10px] font-black uppercase tracking-widest mb-3 shrink-0"
                 style={{ color: 'rgba(13,74,47,0.45)' }}>Fleet Dispatch Manifest</h3>
 
             {(!optimalRoute.fleet_routes || optimalRoute.fleet_routes.length === 0) ? (
@@ -120,7 +120,7 @@ const RoutePanel = ({ optimalRoute, setOptimalRoute, bins = [], routingMode, set
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+              <div className="space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
                 {optimalRoute.fleet_routes.map(van => (
                   <div key={`van-${van.van_id}`} className="p-3 rounded-xl"
                        style={{ background: 'rgba(255,255,255,0.48)', border: '1px solid rgba(255,255,255,0.65)' }}>
@@ -150,23 +150,32 @@ const RoutePanel = ({ optimalRoute, setOptimalRoute, bins = [], routingMode, set
                                   style={{ background: 'rgba(22,163,74,0.10)', color: '#166534', border: '1px solid rgba(22,163,74,0.20)' }}>
                               {step.step_order}
                             </span>
-                            <p className="text-xs font-semibold truncate" style={{ color: '#0d4a2f' }}>
-                              {step.location || step.bin_id}
-                            </p>
+                            <div>
+                                <p className="text-xs font-semibold truncate" style={{ color: '#0d4a2f' }}>
+                                  {step.location || step.bin_id}
+                                </p>
+                                {step.is_complaint && (
+                                    <span className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md mt-0.5 w-fit" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#9333ea', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+                                        <Camera className="w-3 h-3" /> Photo Complaint (Vol: {step.capacity || 0}L)
+                                    </span>
+                                )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                                  style={step.priority === 3
-                                    ? { background:'rgba(220,38,38,0.12)', color:'#dc2626', border:'1px solid rgba(220,38,38,0.22)' }
-                                    : step.priority === 2
-                                    ? { background:'rgba(217,119,6,0.12)', color:'#d97706', border:'1px solid rgba(217,119,6,0.22)' }
-                                    : { background:'rgba(22,163,74,0.10)', color:'#16a34a', border:'1px solid rgba(22,163,74,0.20)' }}>
-                              P{step.priority}
-                            </span>
-                            <span className="text-xs font-bold w-8 text-right" style={{ color: '#0d4a2f' }}>
-                              {step.fill_percentage}%
-                            </span>
-                          </div>
+                          {!step.is_complaint && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                                    style={step.priority === 3
+                                      ? { background:'rgba(220,38,38,0.12)', color:'#dc2626', border:'1px solid rgba(220,38,38,0.22)' }
+                                      : step.priority === 2
+                                      ? { background:'rgba(217,119,6,0.12)', color:'#d97706', border:'1px solid rgba(217,119,6,0.22)' }
+                                      : { background:'rgba(22,163,74,0.10)', color:'#16a34a', border:'1px solid rgba(22,163,74,0.20)' }}>
+                                P{step.priority}
+                              </span>
+                              <span className="text-xs font-bold w-8 text-right" style={{ color: '#0d4a2f' }}>
+                                {step.fill_percentage}%
+                              </span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

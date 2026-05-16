@@ -69,7 +69,7 @@
     radial-gradient(ellipse 70% 50% at 50% 70%, rgba(16, 185, 129, 0.15) 0%, transparent 70%),
     /* Bottom forest */
     radial-gradient(ellipse 80% 40% at 20% 100%, rgba(22, 101, 52, 0.20) 0%, transparent 55%),
-    /* Sky gradient */
+  /* Sky gradient */
     linear-gradient(170deg,
       #c8edd8 0%,
       #d4f1e4 20%,
@@ -81,30 +81,18 @@
   pointer-events: none;
 }
 
-/* Floating leaf elements */
+/* Floating leaf elements (optimized to fewer gradients for blur performance) */
 .nature-bg::before {
   content: '';
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle 3px at 8%  20%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(circle 4px at 15% 60%, rgba(255,255,255,0.5) 0%, transparent 100%),
-    radial-gradient(circle 2px at 92% 25%, rgba(255,255,255,0.7) 0%, transparent 100%),
-    radial-gradient(circle 3px at 85% 75%, rgba(255,255,255,0.5) 0%, transparent 100%),
-    radial-gradient(circle 2px at 55% 10%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(circle 5px at 70% 85%, rgba(255,255,255,0.4) 0%, transparent 100%);
+    radial-gradient(circle 4px at 15% 60%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(circle 3px at 85% 75%, rgba(255,255,255,0.3) 0%, transparent 100%);
 }
 
-/* Subtle leaf-vein grid */
-.nature-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
-}
+/* Subtle leaf-vein grid (REMOVED: Blurring a 1px grid crashes Windows GPU performance) */
+/* .nature-bg::after { ... } */
 
 /* ── GLASS COMPONENT SYSTEM ──────────────────────────────────────── */
 @layer components {
@@ -112,8 +100,8 @@
   /* Main frosted card */
   .glass-panel {
     background: rgba(255, 255, 255, 0.52);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.70);
     box-shadow:
       0 8px 32px rgba(16, 105, 60, 0.10),
@@ -124,8 +112,8 @@
   /* Lighter floating card */
   .glass-card {
     background: rgba(255, 255, 255, 0.42);
-    backdrop-filter: blur(16px) saturate(160%);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    backdrop-filter: blur(8px) saturate(160%);
+    -webkit-backdrop-filter: blur(8px) saturate(160%);
     border: 1px solid rgba(255, 255, 255, 0.60);
     box-shadow:
       0 4px 20px rgba(16, 105, 60, 0.08),
@@ -147,8 +135,8 @@
   /* Deep glass — sidebar, modals */
   .glass-deep {
     background: rgba(255, 255, 255, 0.62);
-    backdrop-filter: blur(32px) saturate(200%);
-    -webkit-backdrop-filter: blur(32px) saturate(200%);
+    backdrop-filter: blur(16px) saturate(200%);
+    -webkit-backdrop-filter: blur(16px) saturate(200%);
     border: 1px solid rgba(255, 255, 255, 0.75);
     box-shadow:
       0 16px 48px rgba(16, 105, 60, 0.12),
@@ -280,8 +268,8 @@
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
   background: rgba(255,255,255,0.88) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
   color: #0d4a2f !important;
   border: 1px solid rgba(255,255,255,0.80) !important;
   box-shadow: 0 12px 40px rgba(16,105,60,0.15) !important;
@@ -292,7 +280,7 @@
 .leaflet-container { background: #c8edd8; }
 .leaflet-control-zoom a {
   background: rgba(255,255,255,0.80) !important;
-  backdrop-filter: blur(12px) !important;
+  backdrop-filter: blur(4px) !important;
   color: #166534 !important;
   border: 1px solid rgba(255,255,255,0.70) !important;
   border-radius: 10px !important;
@@ -316,7 +304,7 @@ select option { background: #f0fdf4; color: #0d4a2f; }
   height: 52px;
   border-radius: 16px;
   background: rgba(255,255,255,0.60);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
   border: 1px solid rgba(255,255,255,0.75);
   display: flex;
   align-items: center;
